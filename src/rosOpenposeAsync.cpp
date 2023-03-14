@@ -24,7 +24,7 @@
 #define OPENPOSE1POINT7POINT1_OR_HIGHER OpenPose_VERSION_MAJOR >= 1 && OpenPose_VERSION_MINOR >= 7 && OpenPose_VERSION_PATCH >=1
 
 // define sleep for input and output worker in milliseconds
-const int SLEEP_MS = 10;
+const int SLEEP_MS = 1;
 
 // define a few datatype
 typedef std::shared_ptr<op::Datum> sPtrDatum;
@@ -71,7 +71,8 @@ public:
           auto& datumPtr = datumsPtr->at(0);
           datumPtr = std::make_shared<op::Datum>();
 
-// fill the datum
+          // fill the datum
+          datumPtr->frameNumber = frameNumber;  // frame number = timestamp in ns
 #if OPENPOSE1POINT6_OR_HIGHER
           datumPtr->cvInputData = OP_CV2OPCONSTMAT(colorImage);
 #else
@@ -230,7 +231,7 @@ public:
       if (datumsPtr != nullptr && !datumsPtr->empty())
       {
         // update timestamp
-        mFrame.header.stamp = ros::Time::now();
+        mFrame.header.stamp = ros::Time().fromNSec((uint64_t)datumsPtr->at(0)->frameNumber);
 
         // make sure to clear previous data
         mFrame.persons.clear();

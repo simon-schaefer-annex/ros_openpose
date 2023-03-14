@@ -25,6 +25,8 @@ find_package(Glog)
 find_package(OpenCV REQUIRED)
 find_package(OpenPose REQUIRED)
 find_package(OpenMP)
+set(CAFFE_LIB_FOLDER /usr/wiss/sas/models/openpose/build/caffe/lib) 
+link_directories(${CAFFE_LIB_FOLDER}) 
 
 if(OPENMP_FOUND)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")

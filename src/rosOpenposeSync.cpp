@@ -81,7 +81,7 @@ public:
     }
 
     void callback(const ImageConstPtr& color_msg, const ImageConstPtr& depth_msg) {
-        _frame_msg.header.stamp = ros::Time::now();
+        _frame_msg.header.stamp = color_msg->header.stamp;
         _frame_msg.persons.clear();
 
         _color_img = cv_bridge::toCvShare(color_msg, image_encodings::BGR8)->image;

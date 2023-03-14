@@ -57,7 +57,7 @@ namespace ros_openpose
       // remember that we are accessing it from another thread too.
       std::lock_guard<std::mutex> lock(mMutex);
       mColorImage = colorPtr->image;
-      mFrameNumber++;
+      mFrameNumber = colorMsg->header.stamp.toNSec();
     }
     catch (cv_bridge::Exception& e)
     {
