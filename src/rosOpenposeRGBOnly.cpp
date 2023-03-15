@@ -24,11 +24,10 @@ private:
     cv::Mat _color_img;
     ros_openpose::Frame _frame_msg = ros_openpose::Frame();
 public:
-    RosOpenPoseRGB(ros::NodeHandle& nh, op::Wrapper* op_wrapper, const std::string& color_topic,
-                   const std::string& pub_topic, const std::string& frame_id):
+    RosOpenPoseRGB(ros::NodeHandle& nh, op::Wrapper* op_wrapper,
+                   const std::string& color_topic,
+                   const std::string& pub_topic):
                    _nh(&nh), _op_wrapper(op_wrapper) {
-
-        _frame_msg.header.frame_id = frame_id;
 
         // Initialize frame publisher
         _pub = _nh->advertise<ros_openpose::Frame>(pub_topic, 10);
@@ -118,10 +117,9 @@ int main(int argc, char** argv) {
     ros::NodeHandle nh("~");
 
     // Get params
-    std::string color_topic, cam_info_topic, pub_topic, frame_id;
+    std::string color_topic, cam_info_topic, pub_topic;
     nh.getParam("color_topic", color_topic);
     nh.getParam("pub_topic", pub_topic);
-    nh.getParam("frame_id", frame_id);
 
     // Parse Openpose Args
     gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -135,7 +133,7 @@ int main(int argc, char** argv) {
         op_wrapper.start();
 
         // Start ROS wrapper
-        RosOpenPoseRGB rop(nh, &op_wrapper, color_topic, pub_topic, frame_id);
+        RosOpenPoseRGB rop(nh, &op_wrapper, color_topic, pub_topic);
 
         ros::spin();
 
