@@ -1,63 +1,41 @@
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
-#include <sensor_msgs/CameraInfo.h>
-#include <message_filters/subscriber.h>
-#include <message_filters/synchronizer.h>
-#include <message_filters/sync_policies/approximate_time.h>
 #include <cv_bridge/cv_bridge.h>
+#include <image_transport/image_transport.h>
 #include <opencv2/core/core.hpp>
 #include <openpose/flags.hpp>
 #include <openpose/headers.hpp>
+
 #include <ros_openpose/Frame.h>
 #include <ros_openpose/BodyPart.h>
+#include <ros_openpose/utility.h>
 
-#include<ros_openpose/utility.h>
 
 using namespace sensor_msgs;
-class rosOpenPose
+class RosOpenPoseRGB
 {
 private:
     op::Wrapper* _op_wrapper;
     ros::NodeHandle* _nh;
     ros::Publisher _pub;
-    message_filters::Subscriber<Image> _color_sub;
-    message_filters::Subscriber<Image> _depth_sub;
-    typedef message_filters::sync_policies::ApproximateTime<Image, Image> ColorDepthSyncPolicy;
-    typedef message_filters::Synchronizer<ColorDepthSyncPolicy> ColorDepthSync;
-    std::shared_ptr<ColorDepthSync> _sync;
+    image_transport::ImageTransport* imgTransport_ = nullptr;
+    image_transport::Subscriber _color_sub;
 
-    bool _no_depth;
-    float _fx, _fy, _cx, _cy;
-    float _mm_to_m;
-
-    cv::Mat _color_img, _depth_img;
-    ros_openpose::Frame _frame_msg;
+    cv::Mat _color_img;
+    ros_openpose::Frame _frame_msg = ros_openpose::Frame();
 public:
-    rosOpenPose(ros::NodeHandle* nh, op::Wrapper* op_wrapper, const std::string& color_topic, const std::string& depth_topic,
-                const std::string& cam_info_topic, const std::string& pub_topic, const std::string& frame_id, const bool& no_depth):
-                _nh(nh), _op_wrapper(op_wrapper), _no_depth(no_depth) {
+    RosOpenPoseRGB(ros::NodeHandle& nh, op::Wrapper* op_wrapper, const std::string& color_topic,
+                   const std::string& pub_topic, const std::string& frame_id):
+                   _nh(&nh), _op_wrapper(op_wrapper) {
 
         _frame_msg.header.frame_id = frame_id;
-
-        // Populate camera intrinsic matrix values.
-        auto cam_info = ros::topic::waitForMessage<CameraInfo>(cam_info_topic);
-        _fx = cam_info->K.at(0);
-        _fy = cam_info->K.at(4);
-        _cx = cam_info->K.at(2);
-        _cy = cam_info->K.at(5);
-
-        // Obtain depth encoding.
-        auto depth_encoding = ros::topic::waitForMessage<Image>(depth_topic)->encoding;
-        _mm_to_m = (depth_encoding == image_encodings::TYPE_16UC1) ? 0.001 : 1.;
 
         // Initialize frame publisher
         _pub = _nh->advertise<ros_openpose::Frame>(pub_topic, 10);
 
-        // Start color & depth subscribers.
-        _color_sub.subscribe(*_nh, color_topic, 1);
-        _depth_sub.subscribe(*_nh, depth_topic, 1);
-        _sync.reset(new ColorDepthSync(ColorDepthSync(10), _color_sub, _depth_sub));
-        _sync->registerCallback(boost::bind(&rosOpenPose::callback, this, _1, _2));
+        // Start color subscribers.
+        imgTransport_ = new image_transport::ImageTransport(nh);
+        _color_sub = imgTransport_->subscribe(color_topic, 1, &RosOpenPoseRGB::callback, this);
     }
 
     template <typename key_points>
@@ -67,23 +45,13 @@ public:
         part.pixel.x = u;
         part.pixel.y = v;
         part.score = s;
-
-        // Compute 3D Pose if depth is provided.
-        if (!_no_depth) {
-            auto depth = _depth_img.at<float>(static_cast<int>(v), static_cast<int> (u)) * _mm_to_m;
-            if (depth <= 0) return;
-            part.point.x = (depth / _fx) * (u - _cx);
-            part.point.y = (depth / _fy) * (v - _cy);
-            part.point.z = depth;
-        }
     }
 
-    void callback(const ImageConstPtr& color_msg, const ImageConstPtr& depth_msg) {
+    void callback(const sensor_msgs::ImageConstPtr& color_msg) {
         _frame_msg.header.stamp = color_msg->header.stamp;
         _frame_msg.persons.clear();
 
         _color_img = cv_bridge::toCvShare(color_msg, image_encodings::BGR8)->image;
-        _depth_img = cv_bridge::toCvShare(depth_msg, image_encodings::TYPE_32FC1)->image;
 
         // Fill datum
 #if OPENPOSE1POINT6_OR_HIGHER
@@ -150,14 +118,10 @@ int main(int argc, char** argv) {
     ros::NodeHandle nh("~");
 
     // Get params
-    bool no_depth;
-    std::string color_topic, depth_topic, cam_info_topic, pub_topic, frame_id;
+    std::string color_topic, cam_info_topic, pub_topic, frame_id;
     nh.getParam("color_topic", color_topic);
-    nh.getParam("depth_topic", depth_topic);
-    nh.getParam("cam_info_topic", cam_info_topic);
     nh.getParam("pub_topic", pub_topic);
     nh.getParam("frame_id", frame_id);
-    nh.param("no_depth", no_depth, false);  // default value is false
 
     // Parse Openpose Args
     gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -171,7 +135,7 @@ int main(int argc, char** argv) {
         op_wrapper.start();
 
         // Start ROS wrapper
-        rosOpenPose rop(&nh, &op_wrapper, color_topic, depth_topic, cam_info_topic, pub_topic, frame_id, no_depth);
+        RosOpenPoseRGB rop(nh, &op_wrapper, color_topic, pub_topic, frame_id);
 
         ros::spin();
 

@@ -95,6 +95,9 @@ add_executable(rosOpenposeAsync
 add_executable(rosOpenposeSync
   src/rosOpenposeSync.cpp)
 
+add_executable(rosOpenposeRGBOnly
+  src/rosOpenposeRGBOnly.cpp)
+
 # Bug fix
 # src: https://github.com/ravijo/ros_openpose/issues/14#issuecomment-631164300
 add_dependencies(rosOpenposeAsync ros_openpose_generate_messages_cpp)
@@ -109,12 +112,20 @@ target_link_libraries(rosOpenposeAsync
 )
 
 target_link_libraries(rosOpenposeSync
-        ${OpenPose_LIBS}
-        gflags ${GFLAGS_LIBRARY}
-        ${GLOG_LIBRARY}
-        ${OpenCV_LIBS}
-        ${catkin_LIBRARIES}
-        )
+  ${OpenPose_LIBS}
+  gflags ${GFLAGS_LIBRARY}
+  ${GLOG_LIBRARY}
+  ${OpenCV_LIBS}
+  ${catkin_LIBRARIES}
+)
+
+target_link_libraries(rosOpenposeRGBOnly
+  ${OpenPose_LIBS}
+  gflags ${GFLAGS_LIBRARY}
+  ${GLOG_LIBRARY}
+  ${OpenCV_LIBS}
+  ${catkin_LIBRARIES}
+)
 
 add_executable(testCameraReader
   src/testCameraReader.cpp
